@@ -1,0 +1,2219 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<!-- ====== iPhone viewport + PWA ====== -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#05070f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="Сканер технических марок системы «Честный Знак» — сканируйте любые коды маркировки.">
+
+<!-- Apple Touch Icon 180×180 -->
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<!-- для возможности "Добавить на экран «Домой»" -->
+<link rel="manifest" href="manifest.json">
+
+<title>Честный Знак — Сканер</title>
+
+<style>
+  /* ============================================================
+     RESET / БАЗА
+     ============================================================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #05070f;
+    --bg-2: #0d111e;
+    --bg-3: #151b2e;
+    --surface: rgba(20, 28, 52, 0.72);
+    --surface-border: rgba(255,255,255,0.08);
+    --text: #e8edf5;
+    --text-dim: #8b94a7;
+    --text-mute: #5b6478;
+    --ray: #ffa41b;
+    --ray-soft: rgba(255,164,27,0.18);
+    --beam: #45e0ff;
+    --violet: #a78bfa;
+    --green: #3dd68c;
+    --green-soft: rgba(61,214,140,0.14);
+    --red: #ff5c6c;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+           'SF Pro Text', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  }
+
+  html { font-size: 16px; }
+  body {
+    font-family: var(--font);
+    background: radial-gradient(ellipse at 50% 0%, #0d1225 0%, var(--bg) 60%);
+    color: var(--text);
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+             env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+  }
+
+  /* ============================================================
+     СТРУКТУРА PAGE
+     ============================================================ */
+  .page {
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 28px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* ============================================================
+     ЭКРАН: ГЛАВНЫЙ
+     ============================================================ */
+  .screen { display: none; flex-direction: column; align-items: center; gap: 22px; }
+  .screen.active { display: flex; }
+
+  .logo-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .logo-icon {
+    width: 68px; height: 68px;
+    background: linear-gradient(135deg, var(--ray) 0%, #ffc14d 60%, #e89c12 100%);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 32px rgba(255,164,27,0.25), 0 0 0 1px rgba(255,164,27,0.15);
+  }
+  .logo-icon svg { width: 34px; height: 34px; }
+  .logo-text {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text);
+  }
+  .logo-sub {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-top: -2px;
+  }
+
+  .hero-desc {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 15px;
+    line-height: 1.5;
+    max-width: 300px;
+  }
+  .hero-desc strong { color: var(--ray); font-weight: 600; }
+
+  /* ============================================================
+     КНОПКИ (Apple-стиль)
+     ============================================================ */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 24px;
+    border-radius: var(--radius);
+    font-family: var(--font);
+    font-size: 15.5px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--ray) 0%, var(--ray-soft) 100%);
+    color: #1a1208;
+    box-shadow: 0 4px 16px rgba(255,164,27,0.35), 0 0 0 1px rgba(255,164,27,0.2);
+  }
+  .btn-primary:hover { box-shadow: 0 6px 22px rgba(255,164,27,0.45); }
+
+  .btn-glass {
+    background: var(--surface);
+    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    border: 1px solid var(--surface-border);
+    color: var(--text);
+  }
+  .btn-glass:hover { background: rgba(25,35,65,0.8); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    padding: 10px 16px;
+  }
+  .btn-ghost:hover { color: var(--text); }
+
+  .btn-danger {
+    background: rgba(255,92,108,0.12);
+    color: var(--red);
+    border: 1px solid rgba(255,92,108,0.25);
+  }
+  .btn-danger:active { background: rgba(255,92,108,0.2); }
+
+  .btn-sm { padding: 10px 16px; font-size: 14px; }
+  .btn-icon {
+    width: 44px; height: 44px;
+    padding: 0;
+    border-radius: 50%;
+  }
+
+  .btn-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(26,18,8,0.3);
+    border-top-color: #1a1208;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============================================================
+     ЭКРАН: СКАНИРОВАНИЕ
+     ============================================================ */
+  #scan-screen.active { align-items: stretch; }
+  .scan-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 0 4px;
+  }
+  .scan-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scan-title .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--beam);
+    box-shadow: 0 0 8px var(--beam);
+    animation: pulse-dot 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+  .scan-status {
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .scan-status .ring {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--text-mute);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .scan-status .ring.live { border-color: var(--green); background: var(--green-soft); }
+  .scan-status .ring.live::after {
+    content: '';
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--green);
+  }
+
+  /* видеопоток — затемнённый фон, камера по центру */
+  .scan-video-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .scan-video-wrap video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    background: #05070f;
+  }
+
+  /* маска сканера — квадрат с "бегущими углами" */
+  .scan-mask {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(70vw, 280px);
+    aspect-ratio: 1 / 1;
+    pointer-events: none;
+  }
+  .scan-mask .rect {
+    position: absolute;
+    inset: 0;
+    border: 2.5px solid rgba(255,164,27,0.85);
+    border-radius: 10px;
+    box-shadow:
+      0 0 0 9999px rgba(5,7,15,0.55),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+    transition: border-color 0.3s ease;
+  }
+  .scan-mask .rect.flash { border-color: var(--beam); }
+
+  /* бегущие углы */
+  .corner {
+    position: absolute;
+    width: 26px; height: 26px;
+  }
+  .corner svg { width: 100%; height: 100%; overflow: visible; }
+  .corner .seg { stroke: var(--ray); stroke-width: 3; stroke-linecap: round; fill: none; }
+  .corner-tl { top: -1px; left: -1px;  transform: rotate(0deg); }
+  .corner-tr { top: -1px; right: -1px; transform: rotate(90deg); }
+  .corner-bl { bottom: -1px; left: -1px; transform: rotate(-90deg); }
+  .corner-br { bottom: -1px; right: -1px; transform: rotate(180deg); }
+
+  /* Зона под камерой: подсказка + инфо */
+  .scan-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+    padding: 4px 0 2px;
+  }
+  .scan-hint {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.4;
+  }
+  .scan-hint code {
+    background: var(--surface);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: var(--beam);
+  }
+  .scan-codes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    max-width: 340px;
+  }
+  .chip {
+    font-size: 11px;
+    color: var(--text-dim);
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    padding: 4px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    backdrop-filter: blur(8px);
+  }
+  .chip .type-tag {
+    color: var(--violet);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ============================================================
+     ЭКРАН: РЕЗУЛЬТАТ (модалка)
+     ============================================================ */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(3,5,12,0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
+  }
+  .modal-overlay.open { opacity: 1; visibility: visible; }
+
+  .modal-card {
+    width: 100%;
+    max-width: 380px;
+    background: linear-gradient(160deg, #18203a 0%, #0d111e 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 24px 22px 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+    transform: translateY(16px) scale(0.97);
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .modal-overlay.open .modal-card { transform: none; }
+
+  .modal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--green);
+    background: var(--green-soft);
+    border: 1px solid rgba(61,214,140,0.2);
+    padding: 5px 10px;
+    border-radius: 20px;
+    margin-bottom: 14px;
+  }
+  .modal-badge.invalid { color: var(--red); background: rgba(255,92,108,0.1); border-color: rgba(255,92,108,0.2); }
+  .modal-badge .ico { width: 14px; height: 14px; }
+
+  .modal-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.4px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .modal-subtitle {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-bottom: 18px;
+    line-height: 1.4;
+  }
+
+  .field-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .field-row:last-of-type { border-bottom: none; }
+  .field-label {
+    font-size: 12px;
+    color: var(--text-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .field-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.3px;
+    text-align: right;
+    word-break: break-all;
+    max-width: 60%;
+  }
+  .field-value.gtin { color: var(--beam); }
+  .field-value.serial { color: var(--ray); }
+  .field-value.raw { color: var(--text-dim); font-size: 13px; }
+
+  .modal-raw {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.25);
+    border-radius: var(--radius-sm);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    word-break: break-all;
+    line-height: 1.5;
+    border: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .modal-actions .btn { flex: 1; }
+
+  /* ============================================================
+     ЭКРАН: ИСТОРИЯ
+     ============================================================ */
+  .history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .history-title { font-size: 15px; font-weight: 600; }
+  .history-count {
+    font-size: 12px;
+    color: var(--text-dim);
+    background: var(--surface);
+    padding: 3px 9px;
+    border-radius: 12px;
+    border: 1px solid var(--surface-border);
+  }
+
+  .history-list {
+    width: 100%;
+    max-height: 42vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-right: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--bg-3) transparent;
+  }
+  .history-list::-webkit-scrollbar { width: 4px; }
+  .history-list::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+
+  .history-empty {
+    text-align: center;
+    color: var(--text-mute);
+    font-size: 14px;
+    padding: 32px 0;
+    line-height: 1.5;
+  }
+  .history-empty .ico-big { font-size: 40px; display: block; margin-bottom: 10px; opacity: 0.4; }
+
+  .history-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--surface-border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: background 0.2s ease;
+  }
+  .history-item:hover { background: rgba(25,35,65,0.8); }
+  .history-item .hm-gtin {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--beam);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .history-item .hm-serial {
+    font-family: ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--ray);
+    background: var(--ray-soft);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .history-item .hm-time {
+    font-size: 11px;
+    color: var(--text-mute);
+    white-space: nowrap;
+  }
+
+  /* ============================================================
+     FLOAT-BUTTON "СЕЙЧАС" — быстрый возврат к скану
+     ============================================================ */
+  .fab {
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    right: 20px;
+    width: 54px; height: 54px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--ray) 0%, #ffc14d 100%);
+    border: none;
+    color: #1a1208;
+    font-size: 22px;
+    font-weight: 700;
+    box-shadow: 0 6px 20px rgba(255,164,27,0.4), 0 0 0 1px rgba(255,164,27,0.2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+  .fab:active { transform: scale(0.92); }
+  .fab.hidden { opacity: 0; pointer-events: none; transform: scale(0.8); }
+
+  /* ============================================================
+     TOAST
+     ============================================================ */
+  .toast-stack {
+    position: fixed;
+    top: calc(16px + env(safe-area-inset-top, 0px));
+    left: 16px;
+    right: 16px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--surface-border);
+    color: var(--text);
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    animation: toast-in 0.25s ease;
+    pointer-events: auto;
+  }
+  .toast.error { border-color: rgba(255,92,108,0.3); color: var(--red); }
+  .toast.success { border-color: rgba(61,214,140,0.25); }
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: none; }
+  }
+  .toast-out { animation: toast-out 0.2s ease forwards; }
+  @keyframes toast-out {
+    to { opacity: 0; transform: translateY(-8px); }
+  }
+
+  /* ============================================================
+     LOADING (сканер busy)
+     ============================================================ */
+  .scanner-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5,7,15,0.4);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  .scanner-loading.show { opacity: 1; }
+  .scanner-loading .lds-ring {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,164,27,0.15);
+    border-top-color: var(--ray);
+    border-radius: 50%;
+    animation: lds-ring 0.8s linear infinite;
+  }
+  @keyframes lds-ring { to { transform: rotate(360deg); } }
+
+  /* ============================================================
+     UTIL
+     ============================================================ */
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+             overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  .flex-center { display: flex; align-items: center; justify-content: center; }
+  .gap-2 { gap: 8px; }
+  .mt-2 { margin-top: 8px; }
+  .text-center { text-align: center; }
+  .w-full { width: 100%; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- ============================================================
+       ЭКРАН: ГЛАВНЫЙ
+       ============================================================ -->
+  <div id="home-screen" class="screen active">
+    <div class="logo-wrap">
+      <div class="logo-icon" aria-hidden="true">
+        <!-- SVG: стилизованная марка "ЧЗ" + эмблема -->
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="32" height="32" rx="7" fill="white" fill-opacity="0.15"/>
+          <path d="M11 15h18M11 20h18M11 25h12" stroke="#1a1208" stroke-width="3.5"
+                stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="30" cy="28" r="5" fill="white"/>
+          <circle cx="30" cy="28" r="2.5" fill="#1a1208"/>
+        </svg>
+      </div>
+      <div>
+        <div class="logo-text">Честный Знак</div>
+        <div class="logo-sub">Техническая маркировка</div>
+      </div>
+    </div>
+
+    <p class="hero-desc">
+      Сканер кодов системы <strong>«Честный Знак»</strong>.
+      Позволяет читать любые технические маркировки —
+      QR, Data Matrix, Aztec, GS1-128 и другие.
+    </p>
+
+    <button class="btn btn-primary" id="btn-start-scan" aria-label="Начать сканирование">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M2 7h3l2.5 11h9L19 9H6"/>
+        <rect x="4" y="5" width="16" height="14" rx="2"/>
+      </svg>
+      Начать сканирование
+    </button>
+
+    <div style="display:flex; gap:8px; width:100%; max-width:300px;">
+      <button class="btn btn-glass btn-sm flex-center" id="btn-history" aria-label="Открыть историю">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <polyline points="12 7 12 12 15 15"/>
+        </svg>
+        История
+        <span id="history-count-badge" style="background:var(--surface); border:1px solid var(--surface-border);
+              border-radius:10px; padding:1px 6px; font-size:10px; color:var(--text-dim); margin-left:4px;">0</span>
+      </button>
+      <button class="btn btn-glass btn-sm" id="btn-clear-history" aria-label="Очистить историю">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <line x1="10" y1="11" x2="10" y2="17"/>
+          <line x1="14" y1="11" x2="14" y2="17"/>
+        </svg>
+        Очистить
+      </button>
+    </div>
+
+    <p style="font-size:11px; color:var(--text-mute); text-align:center; margin-top:6px; line-height:1.4;">
+      Работает офлайн · Данные хранятся только на устройстве
+    </p>
+  </div>
+
+  <!-- ============================================================
+       ЭКРАН: СКАНИРОВАНИЕ
+       ============================================================ -->
+  <div id="scan-screen" class="screen">
+    <div class="scan-header">
+      <button class="btn btn-glass btn-sm" id="btn-back" aria-label="Назад">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Назад
+      </button>
+      <div class="scan-title">
+        <span class="dot"></span>
+        Сканирование
+      </div>
+      <div class="scan-status" id="scan-status">
+        <div class="ring" id="scan-ring"></div>
+        <span id="scan-status-text">Камера</span>
+      </div>
+    </div>
+
+    <div class="scan-video-wrap" id="scan-video-wrap">
+      <video id="scan-video" autoplay playsinline muted
+             style="transform: scaleX(-1);"></video>
+      <div class="scan-mask">
+        <div class="rect" id="scan-rect"></div>
+        <div class="corner corner-tl">
+          <svg viewBox="0 0 26 26">
+            <polyline class="seg" points="0,8 8,0"/>
+            <circle class="seg" cx="0" cy="8" r="2" fill="currentColor" stroke="none"/>
+            <circle class="seg" cx="8" cy="0" r="2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="corner corner-tr">
+          <svg viewBox="0 0 26 26">
+            <polyline class="seg" points="0,8 8,0"/>
+            <circle class="seg" cx="0" cy="8" r="2" fill="currentColor" stroke="none"/>
+            <circle class="seg" cx="8" cy="0" r="2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="corner corner-bl">
+          <svg viewBox="0 0 26 26">
+            <polyline class="seg" points="0,8 8,0"/>
+            <circle class="seg" cx="0" cy="8" r="2" fill="currentColor" stroke="none"/>
+            <circle class="seg" cx="8" cy="0" r="2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+        <div class="corner corner-br">
+          <svg viewBox="0 0 26 26">
+            <polyline class="seg" points="0,8 8,0"/>
+            <circle class="seg" cx="0" cy="8" r="2" fill="currentColor" stroke="none"/>
+            <circle class="seg" cx="8" cy="0" r="2" fill="currentColor" stroke="none"/>
+          </svg>
+        </div>
+      </div>
+      <div class="scanner-loading" id="scanner-loading">
+        <div class="lds-ring"></div>
+      </div>
+    </div>
+
+    <div class="scan-footer">
+      <div class="scan-hint" id="scan-hint">
+        Проведите код над рамкой · Поддерживаются
+        QR, Data Matrix, Aztec, GS1-128, EAN/UPC
+      </div>
+      <div class="scan-codes" id="scan-codes-list"></div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       ЭКРАН: ИСТОРИЯ
+       ============================================================ -->
+  <div id="history-screen" class="screen">
+    <div class="history-header">
+      <div class="history-title">История сканирований</div>
+      <span class="history-count" id="history-count-badge2">0</span>
+    </div>
+
+    <div class="history-list" id="history-list">
+      <div class="history-empty">
+        <span class="ico-big">📋</span>
+        Пока нет сканирований.<br>После первого успешного сканирования
+        запись появится здесь.
+      </div>
+    </div>
+
+    <div style="display:flex; gap:8px; margin-top:4px;">
+      <button class="btn btn-glass btn-sm" id="btn-history-back">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="19" y1="12" x2="5" y2="12"/>
+          <polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Назад
+      </button>
+      <button class="btn btn-danger btn-sm" id="btn-clear-history2">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+          <line x1="10" y1="11" x2="10" y2="17"/>
+          <line x1="14" y1="11" x2="14" y2="17"/>
+        </svg>
+        Выгрузить все
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================================
+     FLOAT-BUTTON "СКАНИРОВАТЬ"
+     ============================================================ -->
+<button class="fab hidden" id="fab-scan" aria-label="Быстрое сканирование">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M2 7h3l2.5 11h9L19 9H6"/>
+    <rect x="4" y="5" width="16" height="14" rx="2"/>
+  </svg>
+</button>
+
+<!-- ============================================================
+     МОДАЛКА: РЕЗУЛЬТАТ
+     ============================================================ -->
+<div class="modal-overlay" id="result-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title-text">
+  <div class="modal-card">
+    <div class="modal-badge" id="modal-badge">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 6L9 17l-5-5"/>
+      </svg>
+      Код распознан
+    </div>
+
+    <div class="modal-title" id="modal-title-text">Товар найден</div>
+    <div class="modal-subtitle" id="modal-subtitle">Данные из технической маркировки</div>
+
+    <div class="field-row">
+      <span class="field-label">Тип кода</span>
+      <span class="field-value" id="modal-type" style="font-weight:500; color:var(--violet); text-align:right;"></span>
+    </div>
+    <div class="field-row">
+      <span class="field-label">GTIN (артикул)</span>
+      <span class="field-value gtin" id="modal-gtin"></span>
+    </div>
+    <div class="field-row">
+      <span class="field-label">Серийный номер</span>
+      <span class="field-value serial" id="modal-serial"></span>
+    </div>
+    <div class="field-row">
+      <span class="field-label">Дата производства</span>
+      <span class="field-value" id="modal-date" style="color:var(--text-dim);"></span>
+    </div>
+    <div class="field-row">
+      <span class="field-label">Объём живого цикла</span>
+      <span class="field-value" id="modal-life" style="color:var(--text-dim);"></span>
+    </div>
+
+    <div class="modal-raw" id="modal-raw"></div>
+
+    <div class="modal-actions">
+      <button class="btn btn-glass" id="modal-close">Закрыть</button>
+      <button class="btn btn-primary" id="modal-ok">Ок, продолжить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast-стек -->
+<div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
+
+<!-- ============================================================
+     LIBRARY: html5-qrcode (CDN)
+     ============================================================ -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+/* ==========================================================================
+   «Честный Знак» — Сканер технических марок
+   Версия 1.0
+   Поддержка: QR, Data Matrix, Aztec, GS1-128, EAN/UPC и другие
+   ========================================================================== */
+
+(function () {
+  'use strict';
+
+  // ====== ЭЛЕМЕНТЫ ДОМА =========================================================================
+  const $ = (id) => document.getElementById(id);
+  const qs = (sel, el) => (el || document).querySelector(sel);
+  const qsa = (sel, el) => (el || document).querySelectorAll(sel);
+
+  const homeScreen  = $('home-screen');
+  const scanScreen  = $('scan-screen');
+  const histScreen  = $('history-screen');
+
+  const btnStartScan = $('btn-start-scan');
+  const btnBack      = $('btn-back');
+  const btnHist      = $('btn-history');
+  const btnHistBack  = $('btn-history-back');
+  const btnClearHist = $('btn-clear-history');
+  const btnClearHist2= $('btn-clear-history2');
+  const fabScan      = $('fab-scan');
+
+  const video       = $('scan-video');
+  const scanRect    = $('scan-rect');
+  const scannerLoad = $('scanner-loading');
+  const scanHint    = $('scan-hint');
+  const scanCodes   = $('scan-codes-list');
+  const scanStatus  = $('scan-status');
+  const scanStatusT = $('scan-status-text');
+  const scanRing    = $('scan-ring');
+
+  const modalOverlay = $('result-modal');
+  const modalBadge  = $('modal-badge');
+  const modalTitle  = $('modal-title-text');
+  const modalSub    = $('modal-subtitle');
+  const modalType   = $('modal-type');
+  const modalGtin   = $('modal-gtin');
+  const modalSerial = $('modal-serial');
+  const modalDate   = $('modal-date');
+  const modalLife   = $('modal-life');
+  const modalRaw    = $('modal-raw');
+  const modalClose  = $('modal-close');
+  const modalOk     = $('modal-ok');
+
+  const histList    = $('history-list');
+  const histCount1  = $('history-count-badge');
+  const histCount2  = $('history-count-badge2');
+
+  const toastStack  = $('toast-stack');
+
+  // ====== STATE ===============================================================================
+  const STORE_KEY = 'honest_sign_scanner_history_v1';
+  const SCANNER_CODES_KEY = 'honest_sign_scanner_codes_v1';
+
+  let scanner = null;            // html5-qrcode.Scaner instance
+  let currentScanId = null;     // ID последнего сканированного кода (чек-доп)
+  let isScanning = false;
+  let modalPayload = null;      // данные для модалки, пока мы не в модалке
+
+  // ====== HELPERS =============================================================================
+  const nowISO = () => new Date().toISOString();
+  const fmtTime = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  };
+  const fmtDate = (iso) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('ru-RU', { day:'2-digit', month:'short', year:'numeric' });
+  };
+  const fmtDateTime = (iso) => `${fmtDate(iso)} · ${fmtTime(iso)}`;
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  function saveHistory(arr) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(arr)); } catch {}
+  }
+  function loadCodes() {
+    try {
+      const raw = localStorage.getItem(SCANNER_CODES_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  }
+  function saveCodes(arr) {
+    try { localStorage.setItem(SCANNER_CODES_KEY, JSON.stringify(arr)); } catch {}
+  }
+
+  function toast(msg, kind = '') {
+    const el = document.createElement('div');
+    el.className = 'toast' + (kind ? ' ' + kind : '');
+    el.textContent = msg;
+    toastStack.appendChild(el);
+    setTimeout(() => {
+      el.classList.add('toast-out');
+      setTimeout(() => el.remove(), 220);
+    }, 2200);
+  }
+
+  // ====== ЭКРАНЫ ==============================================================================
+  function showScreen(screenId) {
+    [homeScreen, scanScreen, histScreen].forEach(s => s.classList.remove('active'));
+    const target = $(screenId);
+    if (target) target.classList.add('active');
+
+    // FAB: виден только на главном экране
+    fabScan.classList.toggle('hidden', screenId !== 'home-screen');
+  }
+
+  function updateHistoryBadges() {
+    const arr = loadHistory();
+    const n = arr.length;
+    histCount1.textContent = n;
+    histCount2.textContent = n;
+  }
+
+  // ====== ПАРСИНГ «ЧЕСТНЫЙ ЗНАК» ================================================================
+  // Поддерживаемые форматы:
+  //   GS1-128 / EAN-128   — применяется в честном знаке (строки с [GS] или (01), (21) и т.п.)
+  //   QR / Data Matrix / Aztec — содержат JSON, URI, или просто строку с данными
+  //   EAN/UPC (13/14 цифр)
+  //   Чистые строки (возможно JSON)
+
+  // --- GS1-128 парсинг ---
+  // (01) — GTIN (14 цифр), (21) — S/N, (10) — серийный номер (альтернативный), (11)/(17) — дата,
+  // (30) — количество, (00) — номер партии, (02) — идентификаторQuantity, и т.д.
+  // 
+  // В реальности строки передаются с разделителем [GS] (0x1D) — в текстовом виде может быть
+  // отображён как псевдо, или в кодировке. html5-qrcode обычно отдаёт чистый текст.
+  // Мы обрабатываем несколько вариантов:
+
+  const GS1_AI = {
+    '00': 'Номер партии (логистическая единица)',
+    '01': 'GTIN (Global Trade Item Number)',
+    '02': 'Идентификатор распределительного центра (упаковка)',
+    '10': 'Серийный номер производства (дополнительный)',
+    '11': 'Дата производства (YYMMDD)',
+    '13': 'Дата истечения срока годности (YYMMDD)',
+    '17': 'Дата истечения срока годности (JJMMGG)',
+    '21': 'Серийный номер товара (Serial Number)',
+    '22': 'Код товара производителя (plier code)',
+    '30': 'Количество товаров (количество)',
+    '310n': 'Вес нетто (кг), n — число дробных разрядов (0-3)',
+    '311n': 'Вес нетто (кг)',
+    '312n': 'Вес нетто (кг)',
+    '313n': 'Вес нетто (кг)',
+    '320n': 'Объём нетто (литры)',
+    '321n': 'Объём нетто (литры)',
+    '322n': 'Объём нетто (литры)',
+    '323n': 'Объём нетто (литры)',
+    '330n': 'Объём нетто (литры)',
+    '331n': 'Объём нетто (литры)',
+    '332n': 'Объём нетто (литры)',
+    '333n': 'Объём нетто (литры)',
+    '350n': 'Количество в упаковке (шт)',
+    '351n': 'Количество в упаковке (шт)',
+    '352n': 'Количество в упаковке (шт)',
+    '353n': 'Количество в упаковке (шт)',
+    '354n': 'Количество в упаковке (шт)',
+    '355n': 'Количество в упаковке (шт)',
+    '356n': 'Количество в упаковке (шт)',
+    '357n': 'Количество в упаковке (шт)',
+    '360n': 'Количество в упаковке (шт)',
+    '361n': 'Количество в упаковке (шт)',
+    '362n': 'Количество в упаковке (шт)',
+    '363n': 'Количество в упаковке (шт)',
+    '364n': 'Количество в упаковке (шт)',
+    '365n': 'Количество в упаковке (шт)',
+    '366n': 'Количество в упаковке (шт)',
+    '367n': 'Количество в упаковке (шт)',
+    '370n': 'Количество в упаковке (шт)',
+    '371n': 'Количество в упаковке (шт)',
+    '372n': 'Количество в упаковке (шт)',
+    '373n': 'Количество в упаковке (шт)',
+    '374n': 'Количество в упаковке (шт)',
+    '375n': 'Количество в упаковке (шт)',
+    '376n': 'Количество в упаковке (шт)',
+    '377n': 'Количество в упаковке (шт)',
+    '380n': 'Количество в упаковке (шт)',
+    '381n': 'Количество в упаковке (шт)',
+    '382n': 'Количество в упаковке (шт)',
+    '383n': 'Количество в упаковке (шт)',
+    '384n': 'Количество в упаковке (шт)',
+    '385n': 'Количество в упаковке (шт)',
+    '386n': 'Количество в упаковке (шт)',
+    '387n': 'Количество в упаковке (шт)',
+    '390n': 'Количество в упаковке (шт)',
+    '391n': 'Количество в упаковке (шт)',
+    '392n': 'Количество в упаковке (шт)',
+    '393n': 'Количество в упаковке (шт)',
+    '394n': 'Количество в упаковке (шт)',
+    '395n': 'Количество в упаковке (шт)',
+    '396n': 'Количество в упаковке (шт)',
+    '397n': 'Количество в упаковке (шт)',
+    '400n': 'Количество в упаковке (шт)',
+    '401n': 'Количество в упаковке (шт)',
+    '402n': 'Количество в упаковке (шт)',
+    '403n': 'Количество в упаковке (шт)',
+    '404n': 'Количество в упаковке (шт)',
+    '405n': 'Количество в упаковке (шт)',
+    '406n': 'Количество в упаковке (шт)',
+    '407n': 'Количество в упаковке (шт)',
+    '408n': 'Количество в упаковке (шт)',
+    '409n': 'Количество в упаковке (шт)',
+    '410n': 'Количество в упаковке (шт)',
+    '411n': 'Количество в упаковке (шт)',
+    '412n': 'Количество в упаковке (шт)',
+    '413n': 'Количество в упаковке (шт)',
+    '414n': 'Количество в упаковке (шт)',
+    '415n': 'Количество в упаковке (шт)',
+    '416n': 'Количество в упаковке (шт)',
+    '417n': 'Количество в упаковке (шт)',
+    '418n': 'Количество в упаковке (шт)',
+    '419n': 'Количество в упаковке (шт)',
+    '420n': 'Количество в упаковке (шт)',
+    '421n': 'Количество в упаковке (шт)',
+    '422n': 'Количество в упаковке (шт)',
+    '423n': 'Количество в упаковке (шт)',
+    '424n': 'Количество в упаковке (шт)',
+    '425n': 'Количество в упаковке (шт)',
+    '426n': 'Количество в упаковке (шт)',
+    '427n': 'Количество в упаковке (шт)',
+    '428n': 'Количество в упаковке (шт)',
+    '429n': 'Количество в упаковке (шт)',
+    '430n': 'Количество в упаковке (шт)',
+    '431n': 'Количество в упаковке (шт)',
+    '432n': 'Количество в упаковке (шт)',
+    '433n': 'Количество в упаковке (шт)',
+    '434n': 'Количество в упаковке (шт)',
+    '435n': 'Количество в упаковке (шт)',
+    '436n': 'Количество в упаковке (шт)',
+    '437n': 'Количество в упаковке (шт)',
+    '438n': 'Количество в упаковке (шт)',
+    '439n': 'Количество в упаковке (шт)',
+    '440n': 'Количество в упаковке (шт)',
+    '441n': 'Количество в упаковке (шт)',
+    '442n': 'Количество в упаковке (шт)',
+    '443n': 'Количество в упаковке (шт)',
+    '444n': 'Количество в упаковке (шт)',
+    '445n': 'Количество в упаковке (шт)',
+    '446n': 'Количество в упаковке (шт)',
+    '447n': 'Количество в упаковке (шт)',
+    '448n': 'Количество в упаковке (шт)',
+    '449n': 'Количество в упаковке (шт)',
+    '450n': 'Количество в упаковке (шт)',
+    '451n': 'Количество в упаковке (шт)',
+    '452n': 'Количество в упаковке (шт)',
+    '453n': 'Количество в упаковке (шт)',
+    '454n': 'Количество в упаковке (шт)',
+    '455n': 'Количество в упаковке (шт)',
+    '456n': 'Количество в упаковке (шт)',
+    '457n': 'Количество в упаковке (шт)',
+    '458n': 'Количество в упаковке (шт)',
+    '459n': 'Количество в упаковке (шт)',
+    '460n': 'Количество в упаковке (шт)',
+    '461n': 'Количество в упаковке (шт)',
+    '462n': 'Количество в упаковке (шт)',
+    '463n': 'Количество в упаковке (шт)',
+    '464n': 'Количество в упаковке (шт)',
+    '465n': 'Количество в упаковке (шт)',
+    '466n': 'Количество в упаковке (шт)',
+    '467n': 'Количество в упаковке (шт)',
+    '468n': 'Количество в упаковке (шт)',
+    '469n': 'Количество в упаковке (шт)',
+    '470n': 'Количество в упаковке (шт)',
+    '471n': 'Количество в упаковке (шт)',
+    '472n': 'Количество в упаковке (шт)',
+    '473n': 'Количество в упаковке (шт)',
+    '474n': 'Количество в упаковке (шт)',
+    '475n': 'Количество в упаковке (шт)',
+    '476n': 'Количество в упаковке (шт)',
+    '477n': 'Количество в упаковке (шт)',
+    '478n': 'Количество в упаковке (шт)',
+    '479n': 'Количество в упаковке (шт)',
+    '480n': 'Количество в упаковке (шт)',
+    '481n': 'Количество в упаковке (шт)',
+    '482n': 'Количество в упаковке (шт)',
+    '483n': 'Количество в упаковке (шт)',
+    '484n': 'Количество в упаковке (шт)',
+    '485n': 'Количество в упаковке (шт)',
+    '486n': 'Количество в упаковке (шт)',
+    '487n': 'Количество в упаковке (шт)',
+    '488n': 'Количество в упаковке (шт)',
+    '489n': 'Количество в упаковке (шт)',
+    '490n': 'Количество в упаковке (шт)',
+    '491n': 'Количество в упаковке (sht',
+    '492n': 'Количество в упаковке (sht',
+    '493n': 'Количество в упаковке (sht',
+    '494n': 'Количество в упаковке (sht',
+    '495n': 'Количество в упаковке (sht',
+    '496n': 'Количество в упаковке (sht',
+    '497n': 'Количество в упаковке (sht',
+    '498n': 'Количество в упаковке (sht',
+    '499n': 'Количество в упаковке (sht',
+  };
+
+  // Для полноты — выпишем GTIN из (01) и S/N из (21) (в искусственном формате 01+GTIN+21+S/N)
+  //
+  // Ожидаемый формат (упрощённый):
+  //   01 + GTIN(14) + 21 + S/N
+  // Допустим, в сырой строке это может быть:
+  //   012000000000012321ABC12345
+  // или в GS1-128 с [GS]-разделителями.
+
+  function parseCheesnyZnack(raw) {
+    const result = {
+      type: 'текст',
+      gtin: null,
+      serial: null,
+      date: null,
+      life: null,
+      batch: null,
+      raw: raw,
+      parsed: false,
+      confidence: 'низкий',
+    };
+
+    // --- Предохранитель: если есть [GS]-символ (0x1D) в строке ---
+    // В JS строка может содержать его как "\u001d" или как дробный символ.
+    const hasGS = raw.includes('\u001d') || raw.includes('(');
+    if (hasGS) {
+      return parseGS1128(raw);
+    }
+
+    // --- Попробуем распознать GS1-128, если сканировалось как "обычный" текст ---
+    // (01)<14цифр> может быть вставлено как 01XXXXXXXXXXXXXX без скобок, когда
+    // сканер отдаёт чистый текст.
+    // Ищем подстроку из GS1 AI-кода.
+
+    // Вариант 1: строка начинается с 01 + 14 цифр + 21 + что-то
+    const m1 = raw.match(/^01(\d{14})21([^0-9].*)$/);
+    if (m1) {
+      result.gtin = m1[1];
+      result.serial = m1[2];
+      result.type = 'упрощённый GS1-128 (01+GTIN+21+S/N)';
+      result.parsed = true;
+      result.confidence = 'высокий';
+      return result;
+    }
+
+    // Вариант 2: строка 01 + 14 цифр (только GTIN)
+    const m2 = raw.match(/^01(\d{14})$/);
+    if (m2) {
+      result.gtin = m2[1];
+      result.type = 'GTIN (01)';
+      result.parsed = true;
+      result.confidence = 'высокий';
+      return result;
+    }
+
+    // Вариант 3: чистый GTIN 14 цифр
+    const m3 = raw.match(/^\d{14}$/);
+    if (m3) {
+      result.gtin = m3[1];
+      result.type = 'GTIN (14 цифр)';
+      result.parsed = true;
+      result.confidence = 'средний';
+      return result;
+    }
+
+    // Вариант 4: JSON с полями gtin / serial / date / life
+    try {
+      const obj = JSON.parse(raw);
+      if (typeof obj === 'object' && obj !== null) {
+        if (obj.gtin) result.gtin = String(obj.gtin);
+        if (obj.serial) result.serial = String(obj.serial);
+        if (obj.date) result.date = String(obj.date);
+        if (obj.life) result.life = String(obj.life);
+        if (obj.batch) result.batch = String(obj.batch);
+        result.type = 'JSON';
+        result.parsed = true;
+        result.confidence = 'средний';
+        return result;
+      }
+    } catch {}
+
+    // Вариант 5: URI-формат (http://..., cheestnyznack://...)
+    const uriMatch = raw.match(/cheestnyznack[:\/]([^\s]+)/i);
+    if (uriMatch) {
+      // В uri может быть закодированная структура
+      const href = decodeURIComponent(uriMatch[1]);
+      try {
+        const obj = JSON.parse(href);
+        if (typeof obj === 'object' && obj !== null) {
+          if (obj.gtin) result.gtin = String(obj.gtin);
+          if (obj.serial) result.serial = String(obj.serial);
+          if (obj.date) result.date = String(obj.date);
+          if (obj.life) result.life = String(obj.life);
+          if (obj.batch) result.batch = String(obj.batch);
+          result.type = 'URI (JSON)';
+          result.parsed = true;
+          result.confidence = 'средний';
+          return result;
+        }
+      } catch {}
+      result.type = 'URI (нераспознан)';
+      result.raw = raw;
+      return result;
+    }
+
+    // Вариант 6: EAN/UPC — 13 или 8 цифр
+    const ean13 = raw.match(/^\d{13}$/);
+    if (ean13) {
+      result.gtin = ean13[1];
+      result.type = 'EAN-13';
+      result.parsed = true;
+      result.confidence = 'средний';
+      return result;
+    }
+    const ean8 = raw.match(/^\d{8}$/);
+    if (ean8) {
+      result.gtin = ean8[1].padStart(14, '0');
+      result.type = 'EAN-8';
+      result.parsed = true;
+      result.confidence = 'средний';
+      return result;
+    }
+
+    // "Не распознано" — возвращаем сырой код как есть
+    result.type = 'неизвестный формат';
+    result.raw = raw;
+    return result;
+  }
+
+  // --- Глубокий парсинг GS1-128 ---
+  function parseGS1128(raw) {
+    const result = {
+      type: 'GS1-128 (EAN-128)',
+      gtin: null,
+      serial: null,
+      date: null,
+      life: null,
+      batch: null,
+      raw: raw,
+      parsed: false,
+      confidence: 'низкий',
+    };
+
+    // Разбиваем по AI. AI-коды могут быть в скобках (01), (21) и т.д.
+    // Или с [GS]-разделителями. В любом случае — выделяем AI-коды и данные.
+
+    // Попытка 1: стандартный вид (01)...(21)... с [GS]
+    // Парсим через регулярку AI-...[GS]
+    const aiPattern = /\([0-9]{2,4}\)/g;
+    const aiMatches = [...raw.matchAll(aiPattern)];
+    if (aiMatches.length === 0) {
+      // Нет скобок — пробуем через [GS]-разделитель
+      return parseGS1128GS(raw, result);
+    }
+
+    // Здесь мы имеем дело со строкой, где AI написаны в скобках
+    // AI всегда за которым следует значение.
+
+    // Проходим по AI и выделяем данные.
+    let i = 0;
+    while (i < aiMatches.length) {
+      const ai = aiMatches[i].toString();  // '(01)', '(21)' и т.д.
+      const aiCode = ai.slice(1, -1);      // '01', '21'
+      const aiEnd = aiMatches[i].index + ai.length;
+      const nextAiStart = (i + 1 < aiMatches.length) ? aiMatches[i+1].index : raw.length;
+      const data = raw.slice(aiEnd, nextAiStart).trim();
+
+      // Парсим по AI-коду
+      switch (aiCode) {
+        case '00':
+          result.batch = data;
+          result.parsed = true;
+          break;
+        case '01':
+          // GTIN — 14 цифр
+          if (/^\d{14}$/.test(data)) {
+            result.gtin = data;
+            result.parsed = true;
+          }
+          break;
+        case '02':
+          // Идентификатор RC — игнорируем или сохраняем
+          break;
+        case '10':
+          result.serial = data;
+          result.parsed = true;
+          break;
+        case '11':
+          if (/^\d{6}$/.test(data)) {
+            result.date = yymmddToDate(data);
+            result.parsed = true;
+          }
+          break;
+        case '13':
+          if (/^\d{6}$/.test(data)) {
+            result.life = yymmddToDate(data);
+            result.parsed = true;
+          }
+          break;
+        case '17':
+          if (/^\d{6}$/.test(data)) {
+            result.life = ddmmyyToDate(data);
+            result.parsed = true;
+          }
+          break;
+        case '21':
+          result.serial = data;
+          result.parsed = true;
+          break;
+        case '22':
+          // Код производителя — игнорируем
+          break;
+        case '30':
+        case '310':
+        case '311':
+        case '312':
+        case '313':
+        case '320':
+        case '321':
+        case '322':
+        case '323':
+        case '330':
+        case '331':
+        case '332':
+        case '333':
+        case '350':
+        case '351':
+        case '352':
+        case '353':
+        case '354':
+        case '355':
+        case '356':
+        case '357':
+        case '360':
+        case '361':
+        case '362':
+        case '363':
+        case '364':
+        case '365':
+        case '366':
+        case '367':
+        case '370':
+        case '371':
+        case '372':
+        case '373':
+        case '374':
+        case '375':
+        case '376':
+        case '377':
+        case '380':
+        case '381':
+        case '382':
+        case '383':
+        case '384':
+        case '385':
+        case '386':
+        case '387':
+        case '390':
+        case '391':
+        case '392':
+        case '393':
+        case '394':
+        case '395':
+        case '396':
+        case '397':
+        case '400':
+        case '401':
+        case '402':
+        case '403':
+        case '404':
+        case '405':
+        case '406':
+        case '407':
+        case '408':
+        case '409':
+        case '410':
+        case '411':
+        case '412':
+        case '413':
+        case '414':
+        case '415':
+        case '416':
+        case '417':
+        case '418':
+        case '419':
+        case '420':
+        case '421':
+        case '422':
+        case '423':
+        case '424':
+        case '425':
+        case '426':
+        case '427':
+        case '428':
+        case '429':
+        case '430':
+        case '431':
+        case '432':
+        case '433':
+        case '434':
+        case '435':
+        case '436':
+        case '437':
+        case '438':
+        case '439':
+        case '440':
+        case '441':
+        case '442':
+        case '443':
+        case '444':
+        case '445':
+        case '446':
+        case '447':
+        case '448':
+        case '449':
+        case '450':
+        case '451':
+        case '452':
+        case '453':
+        case '454':
+        case '455':
+        case '456':
+        case '457':
+        case '458':
+        case '459':
+        case '460':
+        case '461':
+        case '462':
+        case '463':
+        case '464':
+        case '465':
+        case '466':
+        case '467':
+        case '468':
+        case '469':
+        case '470':
+        case '471':
+        case '472':
+        case '473':
+        case '474':
+        case '475':
+        case '476':
+        case '477':
+        case '478':
+        case '479':
+        case '480':
+        case '481':
+        case '482':
+        case '483':
+        case '484':
+        case '485':
+        case '486':
+        case '487':
+        case '488':
+        case '489':
+        case '490':
+        case '491':
+        case '492':
+        case '493':
+        case '494':
+        case '495':
+        case '496':
+        case '497':
+        case '498':
+        case '499':
+          // Количество — игнорируем
+          break;
+        default:
+          // Неизвестный AI-код — просто игнорируем
+          break;
+      }
+
+      i++;
+    }
+
+    if (result.parsed) {
+      result.confidence = 'средний';
+      result.type = 'GS1-128 (EAN-128)';
+    } else {
+      result.type = 'GS1-128 (нераспознано)';
+    }
+
+    return result;
+  }
+
+  // --- Парсинг GS1-128 с [GS]-разделителем ---
+  function parseGS1128GS(raw, result) {
+    // [GS] = 0x1D (Unicode \u001d). В строке может быть как символ, так и escape-последовательность.
+    // Разбиваем по \u001d.
+    const parts = raw.split('\u001d');
+    if (parts.length < 2) {
+      // Нет [GS] — это не стандартный GS1-128 с [GS].
+      // Возвращаем результат как есть.
+      if (!result.parsed) {
+        result.type = 'GS1-128 (без разделителя)';
+      }
+      return result;
+    }
+
+    // Первые 2 байта — идентификатор приложения (AI) — 2-4 цифры
+    for (const part of parts) {
+      if (part.length < 2) continue;
+      const aiCode = part.slice(0, 2);   // первые 2 цифры
+      const data = part.slice(2);        // данные после AI
+
+      switch (aiCode) {
+        case '00':
+          result.batch = data;
+          result.parsed = true;
+          break;
+        case '01':
+          if (/^\d{14}$/.test(data)) {
+            result.gtin = data;
+            result.parsed = true;
+          }
+          break;
+        case '02':
+          break;
+        case '10':
+          result.serial = data;
+          result.parsed = true;
+          break;
+        case '11':
+          if (/^\d{6}$/.test(data)) {
+            result.date = yymmddToDate(data);
+            result.parsed = true;
+          }
+          break;
+        case '13':
+          if (/^\d{6}$/.test(data)) {
+            result.life = yymmddToDate(data);
+            result.parsed = true;
+          }
+          break;
+        case '17':
+          if (/^\d{6}$/.test(data)) {
+            result.life = ddmmyyToDate(data);
+            result.parsed = true;
+          }
+          break;
+        case '21':
+          result.serial = data;
+          result.parsed = true;
+          break;
+        case '22':
+          break;
+        case '30':
+        case '310':
+        case '311':
+        case '312':
+        case '313':
+        case '320':
+        case '321':
+        case '322':
+        case '323':
+        case '330':
+        case '331':
+        case '332':
+        case '333':
+        case '350':
+        case '351':
+        case '352':
+        case '353':
+        case '354':
+        case '355':
+        case '356':
+        case '357':
+        case '360':
+        case '361':
+        case '362':
+        case '363':
+        case '364':
+        case '365':
+        case '366':
+        case '367':
+        case '370':
+        case '371':
+        case '372':
+        case '373':
+        case '374':
+        case '375':
+        case '376':
+        case '377':
+        case '380':
+        case '381':
+        case '382':
+        case '383':
+        case '384':
+        case '385':
+        case '386':
+        case '387':
+        case '390':
+        case '391':
+        case '392':
+        case '393':
+        case '394':
+        case '395':
+        case '396':
+        case '397':
+        case '400':
+        case '401':
+        case '402':
+        case '403':
+        case '404':
+        case '405':
+        case '406':
+        case '407':
+        case '408':
+        case '409':
+        case '410':
+        case '411':
+        case '412':
+        case '413':
+        case '414':
+        case '415':
+        case '416':
+        case '417':
+        case '418':
+        case '419':
+        case '420':
+        case '421':
+        case '422':
+        case '423':
+        case '424':
+        case '425':
+        case '426':
+        case '427':
+        case '428':
+        case '429':
+        case '430':
+        case '431':
+        case '432':
+        case '433':
+        case '434':
+        case '435':
+        case '436':
+        case '437':
+        case '438':
+        case '439':
+        case '440':
+        case '441':
+        case '442':
+        case '443':
+        case '444':
+        case '445':
+        case '446':
+        case '447':
+        case '448':
+        case '449':
+        case '450':
+        case '451':
+        case '452':
+        case '453':
+        case '454':
+        case '455':
+        case '456':
+        case '457':
+        case '458':
+        case '459':
+        case '460':
+        case '461':
+        case '462':
+        case '463':
+        case '464':
+        case '465':
+        case '466':
+        case '467':
+        case '468':
+        case '469':
+        case '470':
+        case '471':
+        case '472':
+        case '473':
+        case '474':
+        case '475':
+        case '476':
+        case '477':
+        case '478':
+        case '479':
+        case '480':
+        case '481':
+        case '482':
+        case '483':
+        case '484':
+        case '485':
+        case '486':
+        case '487':
+        case '488':
+        case '489':
+        case '490':
+        case '491':
+        case '492':
+        case '493':
+        case '494':
+        case '495':
+        case '496':
+        case '497':
+        case '498':
+        case '499':
+          break;
+        default:
+          // Если AI-код не стандартный, но длиннее 2 символов — попробуем 3-4 символа
+          if (part.length >= 3) {
+            const ai3 = part.slice(0, 3);
+            const data3 = part.slice(3);
+            // Попробуем знать 3-значные AI (310n, 311n, ...)
+            if (/^3[12][0-3]$/.test(ai3) || /^3[5-8][0-9]$/.test(ai3)) {
+              // Пропускаем — это дробные AI
+            }
+          }
+          break;
+      }
+    }
+
+    if (result.parsed) {
+      result.confidence = 'средний';
+      result.type = 'GS1-128 (EAN-128)';
+    } else {
+      result.type = 'GS1-128 (без разделителя)';
+    }
+
+    return result;
+  }
+
+  // --- Даты ---
+  function yymmddToDate(s) {
+    // s: YYMMDD. Возвращает дату в формате "12.03.2024" (предполагаем 20xx)
+    const y = parseInt(s.slice(0,2));
+    const m = parseInt(s.slice(2,4));
+    const d = parseInt(s.slice(4,6));
+    const year = y >= 50 ? 1900 + y : 2000 + y;
+    return `${d.toString().padStart(2,'0')}.${m.toString().padStart(2,'0')}.${year}`;
+  }
+  function ddmmyyToDate(s) {
+    // s: DDMMYY
+    const d = parseInt(s.slice(0,2));
+    const m = parseInt(s.slice(2,4));
+    const y = parseInt(s.slice(4,6));
+    const year = y >= 50 ? 1900 + y : 2000 + y;
+    return `${d.toString().padStart(2,'0')}.${m.toString().padStart(2,'0')}.${year}`;
+  }
+
+  // ====== СОБЫТИЕ: СКАНИРОВАНИЕ =================================================================
+  function onScanSuccess(decodedText, decodedResult) {
+    // decodedResult — объект от html5-qrcode, содержит .resultFormat и .barcodes
+    const format = (decodedResult && decodedResult.resultFormat)
+      ? String(decodedResult.resultFormat)
+      : 'неизвестный формат';
+
+    // Определяем тип формата более точно
+    const fmtMap = {
+      'QR_CODE': 'QR-код',
+      'AZTEC': 'Aztec',
+      'DATA_MATRIX': 'Data Matrix',
+      'PDF_417': 'PDF-417',
+      'CODE_128': 'Code 128 (GS1-128)',
+      'CODE_39': 'Code 39',
+      'EAN_13': 'EAN-13',
+      'EAN_8': 'EAN-8',
+      'UPC_A': 'UPC-A',
+      'UPC_E': 'UPC-E',
+      'CODABAR': 'Codabar',
+      'ITF': 'ITF',
+    };
+    const niceFormat = fmtMap[format] || format;
+
+    // Парсим данные
+    const parsed = parseCheesnyZnack(decodedText);
+
+    // Если код уже был в истории с тем же текстом + форматом — не дублируем, но обновляем
+    // (для простоты — всегда добавляем, но дедуплицируем по тексту + формату)
+    const existing = loadHistory();
+    const dupIndex = existing.findIndex(e => e.text === decodedText && e.format === niceFormat);
+    if (dupIndex >= 0) {
+      // Обновляем время
+      existing[dupIndex].scannedAt = nowISO();
+      existing[dupIndex].parsed = parsed;
+      saveHistory(existing);
+      toast('Код уже в истории — обновлено', '');
+    } else {
+      const entry = {
+        id: Date.now() + '_' + Math.random().toString(36).slice(2,6),
+        text: decodedText,
+        format: niceFormat,
+        scannedAt: nowISO(),
+        parsed: parsed,
+        confidence: parsed.confidence || 'низкий',
+      };
+      existing.push(entry);
+      if (existing.length > 200) {
+        // Удаляем самые старые
+        existing.sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt));
+        saveHistory(existing.slice(0, 200));
+      } else {
+        saveHistory(existing);
+      }
+      toast('Код сохранён', 'success');
+    }
+
+    // Показываем модалку
+    showResultModal(parsed, niceFormat, decodedText);
+  }
+
+  function onScanError(err) {
+    // html5-qrcode может вызывать onError периодически при плохих кадрах — игнорируем
+  }
+
+  // ====== МОДАЛКА ==============================================================================
+  function showResultModal(parsed, format, rawText) {
+    modalPayload = { parsed, format, rawText };
+
+    // Заполняем поля
+    if (parsed.parsed) {
+      modalBadge.className = 'modal-badge';
+      modalBadge.innerHTML = `
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+        Код распознан
+      `;
+      modalTitle.textContent = 'Товар найден';
+      modalSub.textContent = 'Данные из технической маркировки';
+    } else {
+      modalBadge.className = 'modal-badge invalid';
+      modalBadge.innerHTML = `
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Не удалось распознать
+      `;
+      modalTitle.textContent = 'Код просканирован';
+      modalSub.textContent = 'Непонятный формат — данные показаны как есть';
+    }
+
+    modalType.textContent = format;
+    modalGtin.textContent = parsed.gtin || '—';
+    modalSerial.textContent = parsed.serial || '—';
+    modalDate.textContent = parsed.date || '—';
+    modalLife.textContent = parsed.life || '—';
+    modalRaw.textContent = rawText;
+
+    modalOverlay.classList.add('open');
+  }
+
+  function closeModal() {
+    modalOverlay.classList.remove('open');
+    modalPayload = null;
+  }
+
+  // ====== ЗАПУСК / ОСТАНОВ КАМЕРЫ =================================================================
+  async function startScanner() {
+    if (isScanning) return;
+    if (!window.html5Qrcode) {
+      toast('Ошибка: библиотека html5-qrcode не загружена', 'error');
+      return;
+    }
+
+    isScanning = true;
+    showScreen('scan-screen');
+    scanStatusT.textContent = 'Инициализация...';
+    scanRing.className = 'ring';
+    scannerLoad.classList.add('show');
+
+    try {
+      // Создаём сканер, привязанный к video-элементу
+      scanner = new window.html5Qrcode('scan-video');
+
+      // Настройки: используем заднюю камеру, разрешение "medium" для скорости
+      const config = {
+        fps: 15,
+        qrbox: { width: 280, height: 280 },
+        aspectRatio: 1.0,
+        verbose: false,
+        // Используем заднюю камеру по умолчанию (iOS — "environment")
+        preferredCameraId: { ideal: 'environment' },
+      };
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        config,
+        onScanSuccess,
+        onScanError,
+      );
+
+      isScanning = true;
+      scanStatusT.textContent = 'Активно';
+      scanRing.className = 'ring live';
+      scanHint.textContent = 'Проведите код над рамкой · Поддерживаются QR, Data Matrix, Aztec, GS1-128, EAN/UPC';
+
+      // Запускаем таймер "свежести" — если камера зависла, перезапустим раз в 30 сек
+      scanner._aliveTimer = setInterval(() => {
+        if (!scanner || !isScanning) return;
+        // html5-qrcode не даёт прямой статус, но можем проверить, жив ли поток
+        try {
+          const tracks = scanner.getRunningTrackConstraints?.();
+          if (tracks && !tracks.some(t => t.readyState >= 1)) {
+            // поток мёртв — перезапускаем
+            stopScanner().then(() => startScanner());
+          }
+        } catch {}
+      }, 30000);
+
+    } catch (err) {
+      isScanning = false;
+      scanner = null;
+      scannerLoad.classList.remove('show');
+      scanStatusT.textContent = 'Камера';
+      scanRing.className = 'ring';
+      console.error('Ошибка запуска сканера:', err);
+      toast('Не удалось получить доступ к камере. Проверьте разрешения.', 'error');
+      showScreen('home-screen');
+    } finally {
+      scannerLoad.classList.remove('show');
+    }
+  }
+
+  async function stopScanner() {
+    if (!isScanning) return;
+    isScanning = false;
+
+    if (scanner) {
+      try {
+        // Очищаем таймер alive
+        if (scanner._aliveTimer) {
+          clearInterval(scanner._aliveTimer);
+          scanner._aliveTimer = null;
+        }
+        // Полная остановка и очистка
+        await scanner.stop();
+        scanner.clear();
+      } catch (err) {
+        console.warn('Ошибка при остановке сканера:', err);
+      }
+      scanner = null;
+    }
+
+    // Останавливаем видео-элемент полностью
+    video.pause();
+    video.src = '';
+    video.load();
+
+    // Сбрасываем статус
+    scanStatusT.textContent = 'Камера';
+    scanRing.className = 'ring';
+    scanHint.textContent = 'Проведите код над рамкой · Поддерживаются QR, Data Matrix, Aztec, GS1-128, EAN/UPC';
+
+    // Удаляем "чипы" с последними кодами
+    scanCodes.innerHTML = '';
+    currentScanId = null;
+  }
+
+  // ====== ЧИПЫ (последние сканированные коды) ===================================================
+  function renderRecentCodes() {
+    const codes = loadCodes();
+    if (codes.length === 0) {
+      scanCodes.innerHTML = '';
+      return;
+    }
+    // Показываем последние 5
+    const recent = codes.slice(-5).reverse();
+    scanCodes.innerHTML = recent.map(c => `
+      <div class="chip">
+        <span class="type-tag">${c.format || 'текст'}</span>
+        <span>${c.text.slice(0, 40)}${c.text.length > 40 ? '…' : ''}</span>
+      </div>
+    `).join('');
+  }
+
+  // ====== ИСТОРИЯ ==============================================================================
+  function renderHistory() {
+    const arr = loadHistory();
+    if (arr.length === 0) {
+      histList.innerHTML = `
+        <div class="history-empty">
+          <span class="ico-big">📋</span>
+          Пока нет сканирований.<br>
+          После первого успешного сканирования запись появится здесь.
+        </div>`;
+      updateHistoryBadges();
+      return;
+    }
+
+    // Сортируем по времени от новых к старым
+    arr.sort((a, b) => new Date(b.scannedAt) - new Date(a.scannedAt));
+
+    histList.innerHTML = arr.map(e => {
+      const p = e.parsed || {};
+      const gtin = p.gtin || '—';
+      const serial = p.serial || '—';
+      const time = fmtDateTime(e.scannedAt);
+      const fmt = e.format || 'текст';
+      return `
+        <div class="history-item" data-id="${e.id}">
+          <div class="hm-gtin" title="${gtin}">${gtin}</div>
+          <div class="hm-serial">${serial}</div>
+          <div class="hm-time">${time}</div>
+        </div>`;
+    }).join('');
+
+    updateHistoryBadges();
+  }
+
+  function clearHistory() {
+    if (loadHistory().length === 0) {
+      toast('История уже пуста', '');
+      return;
+    }
+    saveHistory([]);
+    saveCodes([]);
+    renderHistory();
+    renderRecentCodes();
+    toast('История очищена', '');
+  }
+
+  // ====== NAVIGATION ============================================================================
+  function goHome() {
+    stopScanner().then(() => {
+      showScreen('home-screen');
+      updateHistoryBadges();
+    });
+  }
+
+  function goToHistory() {
+    renderHistory();
+    showScreen('history-screen');
+  }
+
+  // ====== EVENT BINDINGS =======================================================================
+  btnStartScan.addEventListener('click', startScanner);
+  btnBack.addEventListener('click', goHome);
+  btnHist.addEventListener('click', goToHistory);
+  btnHistBack.addEventListener('click', goHome);
+  btnClearHist.addEventListener('click', clearHistory);
+  btnClearHist2.addEventListener('click', clearHistory);
+
+  fabScan.addEventListener('click', startScanner);
+
+  modalClose.addEventListener('click', closeModal);
+  modalOk.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  // Закрытие по Escape (для тестов на десктопе)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (modalOverlay.classList.contains('open')) closeModal();
+      else if (scanScreen.classList.contains('active') && isScanning) stopScanner();
+    }
+  });
+
+  // ====== ИНИЦИАЛИЗАЦИЯ =======================================================================
+  function init() {
+    // Проверяем, доступна ли библиотека
+    if (typeof window.html5Qrcode === 'undefined') {
+      toast('Ошибка загрузки библиотеки сканера. Обновите страницу.', 'error');
+      console.error('html5-qrcode не загружен');
+      const errEl = document.createElement('div');
+      errEl.style.cssText = 'padding:20px; text-align:center; color:#ff5c6c; font-size:14px;';
+      errEl.textContent = 'Ошибка загрузки — библиотека сканера недоступна.';
+      document.querySelector('.page').appendChild(errEl);
+      return;
+    }
+
+    // Проверяем поддержку камеры
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+      // Не критично — просто предупреждаем
+    }
+
+    // Отрисовка
+    updateHistoryBadges();
+    renderRecentCodes();
+
+    console.log('✅ «Честный Знак» — сканер инициализирован');
+    console.log('ℹ️ Поддерживаемые форматы: QR, Data Matrix, Aztec, GS1-128 (EAN-128), EAN/UPC');
+    console.log('ℹ️ Данные сохраняются в localStorage.');
+  }
+
+  // Старт после загрузки DOM + библиотеки
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  // ====== PWA: обработка "beforeinstallprompt" (для Android/desktop) ============
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // На iOS это не сработает, но для полноты
+    e.preventDefault();
+    console.log('📱 Промпт установки PWA получен (Android/desktop)');
+  });
+
+  // ====== Обработчик "pagehide" / "visibilitychange" — остановка камеры при фоне ============
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && isScanning) {
+      // Не останавливаем сразу — даём время на обработку,
+      // но если приложение ушло в фон > 5 сек, останавливаем
+      setTimeout(() => {
+        if (document.hidden && isScanning) {
+          stopScanner().then(() => {
+            showScreen('home-screen');
+            toast('Камера остановлена (приложение в фоне)', '');
+          });
+        }
+      }, 5000);
+    }
+  });
+
+  // ====== Статус-бар iOS: black-translucent ============
+  // Убедимся, что body имеет правильный padding для safe-area
+  if (window.navigator.userAgent.includes('iPhone') || window.navigator.userAgent.includes('iPad')) {
+    document.body.style.paddingBottom = `calc(20px + env(safe-area-inset-bottom, 0px))`;
+  }
+
+  console.log('🚀 Готово.');
+})();
+</script>
+
+</body>
+</html>

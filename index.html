@@ -1244,9 +1244,19 @@
       confidence: 'низкий',
     };
 
-    // Приоритет: код «Честного Знака» вида 01<GTIN14>21<S/N>[GS]91..[GS]92..
-    // Проверяем ДО ветки GS1, т.к. FNC1-разделитель тут есть, но формат — ЧЗ.
-    const cz = raw.match(/^01(\d{14})21(.+)$/s);
+    // ---- Нормализация ----
+    // GS1 Data Matrix всегда начинается с FNC1. ZXing может вернуть его как
+    // \u001d, как symbology-префикс ]d2/]C1/]e0, либо как мусорный первый символ.
+    // Чистим начало строки, чтобы не терять валидный код.
+    let s = String(raw);
+    s = s.replace(/^\uFEFF/, '');                    // BOM
+    s = s.replace(/^\](?:d2|C1|e0|Q3|E0)/i, '');     // AIM symbology identifier
+    s = s.replace(/^[\u0000-\u001f\u007f\s]+/, '');  // ведущие управляющие/пробелы
+
+    // Приоритет: код «Честного Знака» 01<GTIN14>21<S/N>[FNC1]91..[FNC1]92..
+    // Ищем НЕ ТОЛЬКО с начала строки: перед AI 01 может остаться служебный
+    // символ, который иначе ломает распознавание.
+    const cz = s.match(/01(\d{14})21([\s\S]+)/);
     if (cz) {
       result.gtin = cz[1];
       const tail = cz[2];
@@ -1271,10 +1281,11 @@
 
     // Уходим в GS1-ветку только если реально есть FNC1-разделитель
     // или AI в скобках вида (01)
-    const hasGS = raw.includes('\u001d') || /\(\d{2,4}\)/.test(raw);
+    const hasGS = s.includes('\u001d') || /\(\d{2,4}\)/.test(s);
     if (hasGS) {
-      return parseGS1128(raw);
+      return parseGS1128(s);
     }
+    raw = s;
 
     // --- Попробуем распознать GS1-128, если сканировалось как "обычный" текст ---
     // (01)<14цифр> может быть вставлено как 01XXXXXXXXXXXXXX без скобок, когда
@@ -1378,6 +1389,21 @@
     if (/^\d{8}$/.test(raw)) {
       result.gtin = raw.padStart(14, '0');
       result.type = 'EAN-8';
+      result.parsed = true;
+      result.confidence = 'средний';
+      return result;
+    }
+
+    // Последний шанс: где-то в строке есть AI 01 + 14 цифр — берём GTIN,
+    // а остаток после него считаем серийником (частичное распознавание).
+    const loose = s.match(/01(\d{14})([\s\S]*)/);
+    if (loose) {
+      result.gtin = loose[1];
+      let rest = (loose[2] || '').replace(/^21/, '').replace(/^[\u001d\u001e]+/, '');
+      const gsPos = rest.search(/[\u001d\u001e]/);
+      if (gsPos > 0) rest = rest.slice(0, gsPos);
+      if (rest) result.serial = rest.slice(0, 13);
+      result.type = 'GS1 (частично распознан)';
       result.parsed = true;
       result.confidence = 'средний';
       return result;

@@ -44,6 +44,25 @@ const cases = [
   { name: 'Мусор (не распознан)',
     code: 'https://example.com/hello',
     expect: { parsed: false } },
+  // --- кейсы с реального скриншота пользователя (Data Matrix, сигарета/товар) ---
+  { name: 'СКРИНШОТ: FNC1 как первый символ (0 перед 01)',
+    code: '\u001d0104650345491894215mV)e"M)!IPJeXO935ka' + GS + '93Zjkl',
+    expect: { gtin: '04650345491894', serial: '5mV)e"M)!IPJe' } },
+  { name: 'Data Matrix с AIM-префиксом ]d2',
+    code: ']d20104650345491894215mV)e"M)!IPJe' + GS + '91EE06' + GS + '92abc',
+    expect: { gtin: '04650345491894', serial: '5mV)e"M)!IPJe' } },
+  { name: 'Data Matrix с ]C1',
+    code: ']C10104650345491894215mV)e"M)!IPJe',
+    expect: { gtin: '04650345491894' } },
+  { name: 'Ведущий пробел/перевод строки',
+    code: ' \n010463003337124621N4N57BRUZ1ML',
+    expect: { gtin: '04630033371246', serial: 'N4N57BRUZ1ML' } },
+  { name: 'Серийник со спецсимволами и скобками',
+    code: '010465034549189421!"%&/()*+-.' + GS + '91EE06',
+    expect: { gtin: '04650345491894', serial: '!"%&/()*+-.' } },
+  { name: 'Частичный: только 01+GTIN без AI 21',
+    code: '\u001d0104650345491894' + GS + '93Zjkl',
+    expect: { gtin: '04650345491894' } },
 ];
 
 let pass = 0, fail = 0;

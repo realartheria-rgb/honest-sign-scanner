@@ -2,17 +2,25 @@
   "name": "Честный Знак — Сканер",
   "short_name": "ЧЗ-Сканер",
   "description": "Сканируйте коды технической маркировки системы «Честный Знак»: QR, Data Matrix, Aztec, GS1-128 и другие.",
-  "start_url": "/",
+  "id": "/honest-sign-scanner/",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#05070f",
   "theme_color": "#05070f",
   "icons": [
     {
-      "src": "icon-180.png",
+      "src": "./icon-180.png",
       "sizes": "180x180",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "./icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

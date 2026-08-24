@@ -886,10 +886,23 @@
 <!-- Toast-стек -->
 <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
 
-<!-- ============================================================
-     LIBRARY: html5-qrcode (CDN)
-     ============================================================ -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<!-- ====== БИБЛИОТЕКА: html5-qrcode (встроенная, без CDN) ======
+     Файл html5-qrcode.min.js лежит рядом с index.html.
+     При работе с GitHub Pages он загружается с того же домена —
+     без внешних зависимостей. Если файл не найден (сбой),
+     приложение покажет чёткую ошибку. -->
+<script src="html5-qrcode.min.js"></script>
+<script>
+  // Если скрипт не загрузился (например, файл missing на сервере),
+  // покажем явную ошибку и инструкцию
+  window.addEventListener('error', function(e) {
+    if (e.target && e.target.tagName === 'SCRIPT' &&
+        e.target.src && e.target.src.endsWith('html5-qrcode.min.js')) {
+      console.error('Не удалось загрузить html5-qrcode.min.js');
+      toast('Ошибка: библиотека сканера не загружена. Убедитесь, что файл html5-qrcode.min.js рядом с index.html.', 'error');
+    }
+  }, true);
+</script>
 
 <script>
 /* ==========================================================================
@@ -2149,14 +2162,26 @@
   });
 
   // ====== ИНИЦИАЛИЗАЦИЯ =======================================================================
+  let initAttempts = 0;
+  const MAX_INIT_ATTEMPTS = 10;
+
   function init() {
+    initAttempts++;
     // Проверяем, доступна ли библиотека
     if (typeof window.html5Qrcode === 'undefined') {
-      toast('Ошибка загрузки библиотеки сканера. Обновите страницу.', 'error');
-      console.error('html5-qrcode не загружен');
+      if (initAttempts < MAX_INIT_ATTEMPTS) {
+        // Библиотека ещё не загрузилась — пробуем снова
+        console.log(`⏳ Ожидание html5-qrcode... (попытка ${initAttempts}/${MAX_INIT_ATTEMPTS})`);
+        setTimeout(init, 300);
+        return;
+      }
+      // Если не загрузилась после 10 попыток — показываем ошибку
+      toast('Ошибка загрузки библиотеки сканера. Проверьте интернет.', 'error');
+      console.error('html5-qrcode не загружен после', MAX_INIT_ATTEMPTS, 'попыток');
       const errEl = document.createElement('div');
-      errEl.style.cssText = 'padding:20px; text-align:center; color:#ff5c6c; font-size:14px;';
-      errEl.textContent = 'Ошибка загрузки — библиотека сканера недоступна.';
+      errEl.style.cssText = 'padding:20px; text-align:center; color:#ff5c6c; font-size:14px; line-height:1.5;';
+      errEl.innerHTML = '<strong>Ошибка загрузки библиотеки</strong><br>' +
+        'Скачайте файл <code>html5-qrcode.min.js</code> с GitHub и положите рядом с <code>index.html</code>.';
       document.querySelector('.page').appendChild(errEl);
       return;
     }

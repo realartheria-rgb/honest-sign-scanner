@@ -175,6 +175,8 @@
       <h2>Результат сканирования</h2>
       <div class="field"><div class="k">GTIN</div><div class="v" id="rGtin">—</div></div>
       <div class="field"><div class="k">Серийный номер</div><div class="v" id="rSn">—</div></div>
+      <div class="field"><div class="k">Дата производства</div><div class="v" id="rProdDate">—</div></div>
+      <div class="field"><div class="k">Производитель</div><div class="v" id="rManuf">—</div></div>
       <div id="rExtra"></div>
       <div class="actions">
         <button class="btn ghost" id="closeResult">Закрыть</button>
@@ -211,7 +213,7 @@
 
   function parseMarking(raw){
     var s = (raw||"").replace(/[\x1D\x1E]/g,"|").replace(/\]\d{2}/g,"|").replace(/<GS>/gi,"|").replace(/^\uFEFF/,"");
-    var res = { raw:raw, gtin:null, serial:null, batch:null, prodDate:null, expDate:null, extra:[] };
+    var res = { raw:raw, gtin:null, serial:null, batch:null, prodDate:null, expDate:null, manufacturer:null, extra:[] };
     function ai(code,len){ var m = s.match(new RegExp("\\|?"+code+"(\\d{"+len+"})")); return m?m[1]:null; }
     function avar(code){ var m = s.match(new RegExp("\\|?"+code+"([^|]+)")); return m?m[1].trim():null; }
     res.gtin = ai("01",14);
@@ -219,6 +221,7 @@
     res.batch = avar("10");
     res.prodDate = ai("11",6);
     res.expDate = ai("17",6);
+    res.manufacturer = avar("241") || avar("240") || null;
     var mx = s.match(/\|?9([1-9])([^|]{1,40})/);
     if(mx){ res.extra.push({ ai:"9"+mx[1], value:mx[2].trim() }); }
     if(!res.gtin){
@@ -293,6 +296,8 @@
     addHist({ gtin:data.gtin, serial:data.serial, raw:decodedText, ts:Date.now() });
     $("rGtin").textContent = data.gtin || "—";
     $("rSn").textContent = data.serial || "—";
+    $("rProdDate").textContent = data.prodDate ? fmtDate(data.prodDate) : "—";
+    $("rManuf").textContent = data.manufacturer || "—";
     var extraHtml = "";
     if(data.batch) extraHtml += '<div class="field"><div class="k">Партия (10)</div><div class="v">'+esc(data.batch)+'</div></div>';
     if(data.prodDate) extraHtml += '<div class="field"><div class="k">Дата выпуска (11)</div><div class="v">'+esc(fmtDate(data.prodDate))+'</div></div>';
